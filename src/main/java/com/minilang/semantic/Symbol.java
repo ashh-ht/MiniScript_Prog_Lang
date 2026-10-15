@@ -17,8 +17,7 @@ public class Symbol {
     public String toString() {
         if (initialized) {
             return type + " " + name + " (line " + line + ")";
-        } 
-        else {
+        } else {
             return type + " " + name + " (line " + line + ", uninitialized)";
         }
     }

@@ -1,21 +1,32 @@
 package com.minilang.semantic;
 
-import com.minilang.ast.Node;
 import com.minilang.lexer.Token;
 import java.util.ArrayList;
 import java.util.List;
+import com.minilang.ast.Assign;
+import com.minilang.ast.Vardecl;
+import com.minilang.ast.Expr;
+import com.minilang.ast.Literal;
+import com.minilang.ast.Variable;
+import com.minilang.ast.Grouping;
+import com.minilang.ast.Unary;
+import com.minilang.ast.Binary;
+import com.minilang.ast.Block;
+import com.minilang.ast.Stmt;
+import com.minilang.ast.ExprStmt;
 
 public class SemanticAnalyzer {
-
-    private SymbolTable symbols;
+    private SymbolTable symbols = new SymbolTable();
     private List<SemanticError> diagnostics = new ArrayList<>();
 
-    // Walk the whole program and check each statement.
-    public List<SemanticError> analyze(Node.Program program) {
+    private Token lastToken;
+
+    public List<SemanticError> analyze(List<Stmt> program) {
         symbols = new SymbolTable();
         diagnostics.clear();
+        lastToken = null;
 
-        for (Node.Stmt stmt : program.statements) {
+        for (Stmt stmt : program) {
             checkStmt(stmt);
         }
         return diagnostics;
@@ -25,7 +36,7 @@ public class SemanticAnalyzer {
         return diagnostics;
     }
 
-    // Used by Main to decide if we should stop before running.
+    // to know whether to stop or not
     public List<SemanticError> getErrors() {
         List<SemanticError> errors = new ArrayList<>();
         for (SemanticError d : diagnostics) {
@@ -64,21 +75,35 @@ public class SemanticAnalyzer {
         return sb.toString();
     }
 
-    // Figure out which kind of statement this is and check it.
-    private void checkStmt(Node.Stmt stmt) {
-        if (stmt instanceof Node.VarDecl) {
-            checkDecl((Node.VarDecl) stmt);
-        } else if (stmt instanceof Node.Assign) {
-            checkAssign((Node.Assign) stmt);
+    // Figures out what kind of statement this is and checks it.
+    private void checkStmt(Stmt stmt) {
+        if (stmt instanceof Vardecl) {
+            checkDecl((Vardecl) stmt);
+        } else if (stmt instanceof Assign) {
+            checkAssign((Assign) stmt);
+        } else if (stmt instanceof Block) {
+            checkBlock((Block) stmt);
+        } else if (stmt instanceof ExprStmt) {
+            checkExpression(((ExprStmt) stmt).expression);
         } else {
-            error(stmt.token, "Unsupported statement: " + stmt.getClass().getSimpleName());
+            error(lastToken, "Unsupported statement: " + stmt.getClass().getSimpleName());
         }
     }
 
-    private void checkDecl(Node.VarDecl decl) {
-        Type declared = Type.fromKeyword(decl.typeToken.type);
+    // {} now has scope, meaning variables cannot be declared outside of it
+    private void checkBlock(Block block) {
+        symbols.enterScope();
+        for (Stmt inner : block.statements) {
+            checkStmt(inner);
+        }
+        symbols.exitScope();
+    }
+
+    private void checkDecl(Vardecl decl) {
+        lastToken = decl.name;
+        Type declared = Type.fromKeyword(decl.type.getType());
         if (declared == null) {
-            error(decl.typeToken, "'" + decl.typeToken.lexeme + "' is not a valid data type.");
+            error(decl.type, "'" + decl.type.getLexeme() + "' is not a valid data type.");
             declared = Type.ERROR;
         }
 
@@ -86,60 +111,57 @@ public class SemanticAnalyzer {
         if (decl.initializer != null) {
             initType = checkExpression(decl.initializer);
             if (!assignable(declared, initType)) {
-                error(decl.initializer.token, "Can't assign a " + initType + " to '"
-                        + decl.name.lexeme + "' (declared as " + declared + ")");
+                error(decl.name, "Can't assign a " + initType + " to '"
+                        + decl.name.getLexeme() + "' (declared as " + declared + ")");
             }
         }
 
-        // Checks iif there is already a variable with the same name in the current
-        // scope. If so, report an error.
-        Symbol existing = symbols.lookupInCurrentScope(decl.name.lexeme);
+        Symbol existing = symbols.lookupInCurrentScope(decl.name.getLexeme());
         if (existing != null) {
-            error(decl.name, "Variable '" + decl.name.lexeme + "' is already declared (first declared on line "
+            error(decl.name, "Variable '" + decl.name.getLexeme() + "' is already declared (first declared on line "
                     + existing.line + ").");
             return;
         }
-        symbols.declare(new Symbol(decl.name.lexeme, declared, decl.name.line, decl.initializer != null));
+        symbols.declare(new Symbol(decl.name.getLexeme(), declared, decl.name.getLine(), decl.initializer != null));
     }
 
-    private void checkAssign(Node.Assign assign) {
+    private void checkAssign(Assign assign) {
+        lastToken = assign.name;
         Type valueType = checkExpression(assign.value);
 
-        Symbol target = symbols.lookup(assign.name.lexeme);
+        Symbol target = symbols.lookup(assign.name.getLexeme());
         if (target == null) {
-            error(assign.name, "Undeclared variable '" + assign.name.lexeme + "'.");
+            error(assign.name, "Undeclared variable '" + assign.name.getLexeme() + "'.");
             return;
         }
         if (!assignable(target.type, valueType)) {
-            error(assign.value.token, "Type error: trying to put a " + valueType + " into "
+            error(assign.name, "Type error: trying to put a " + valueType + " into "
                     + target.type + " variable '" + target.name + "'");
         }
         target.initialized = true;
     }
 
-    // For expressions, each one returns its type. If something was already wrong we
-    // return Type.ERROR.
-    private Type checkExpression(Node.Expr expr) {
-        if (expr instanceof Node.Literal) {
-            return checkLiteral((Node.Literal) expr);
+    private Type checkExpression(Expr expr) {
+        if (expr instanceof Literal) {
+            return checkLiteral((Literal) expr);
         }
-        if (expr instanceof Node.Variable) {
-            return checkVar((Node.Variable) expr);
+        if (expr instanceof Variable) {
+            return checkVar((Variable) expr);
         }
-        if (expr instanceof Node.Grouping) {
-            return checkExpression(((Node.Grouping) expr).expression);
+        if (expr instanceof Grouping) {
+            return checkExpression(((Grouping) expr).expression);
         }
-        if (expr instanceof Node.Unary) {
-            return checkUnary((Node.Unary) expr);
+        if (expr instanceof Unary) {
+            return checkUnary((Unary) expr);
         }
-        if (expr instanceof Node.Binary) {
-            return checkBinary((Node.Binary) expr);
+        if (expr instanceof Binary) {
+            return checkBinary((Binary) expr);
         }
-        error(expr.token, "Unsupported expression: " + expr.getClass().getSimpleName());
+        error(lastToken, "Unsupported expression: " + expr.getClass().getSimpleName());
         return Type.ERROR;
     }
 
-    private Type checkLiteral(Node.Literal lit) {
+    private Type checkLiteral(Literal lit) {
         Object v = lit.value;
         if (v instanceof Integer || v instanceof Long) {
             return Type.INT;
@@ -153,31 +175,31 @@ public class SemanticAnalyzer {
         if (v instanceof Boolean) {
             return Type.BOOL;
         }
-        error(lit.token, "Unknown literal value: " + v);
+        error(lastToken, "Unknown literal value: " + v);
         return Type.ERROR;
     }
 
-    private Type checkVar(Node.Variable var) {
-        Symbol s = symbols.lookup(var.name.lexeme);
+    private Type checkVar(Variable var) {
+        lastToken = var.name;
+        Symbol s = symbols.lookup(var.name.getLexeme());
         if (s == null) {
-            error(var.name, "Undeclared variable '" + var.name.lexeme + "'.");
+            error(var.name, "Undeclared variable '" + var.name.getLexeme() + "'.");
             return Type.ERROR;
         }
         if (!s.initialized) {
             warning(var.name, "Variable '" + s.name + "' is used before it is assigned a value.");
-            // mark it initialized so we don't warn about the same variable over and over
             s.initialized = true;
         }
         return s.type;
     }
 
-    private Type checkUnary(Node.Unary unary) {
+    private Type checkUnary(Unary unary) {
         Type operand = checkExpression(unary.right);
         if (operand == Type.ERROR) {
             return Type.ERROR;
         }
 
-        switch (unary.operator.type) {
+        switch (unary.operator.getType()) {
             case MINUS:
                 if (operand.isNumeric()) {
                     return operand;
@@ -189,14 +211,14 @@ public class SemanticAnalyzer {
                 }
                 break;
             default:
-                error(unary.operator, "Unknown unary operator '" + unary.operator.lexeme + "'.");
+                error(unary.operator, "Unknown unary operator '" + unary.operator.getLexeme() + "'.");
                 return Type.ERROR;
         }
-        error(unary.operator, "Operator '" + unary.operator.lexeme + "' cannot be applied to '" + operand + "'.");
+        error(unary.operator, "Operator '" + unary.operator.getLexeme() + "' cannot be applied to '" + operand + "'.");
         return Type.ERROR;
     }
 
-    private Type checkBinary(Node.Binary bin) {
+    private Type checkBinary(Binary bin) {
         Type left = checkExpression(bin.left);
         Type right = checkExpression(bin.right);
         if (left == Type.ERROR || right == Type.ERROR) {
@@ -204,7 +226,7 @@ public class SemanticAnalyzer {
         }
 
         Type result = null;
-        switch (bin.operator.type) {
+        switch (bin.operator.getType()) {
             case PLUS:
                 if (left == Type.STRING && right == Type.STRING) {
                     result = Type.STRING;
@@ -212,6 +234,7 @@ public class SemanticAnalyzer {
                     result = widerType(left, right);
                 }
                 break;
+
             case MINUS:
             case STAR:
             case SLASH:
@@ -220,6 +243,7 @@ public class SemanticAnalyzer {
                     result = widerType(left, right);
                 }
                 break;
+
             case GREATER:
             case GREATER_EQUAL:
             case LESS:
@@ -228,35 +252,37 @@ public class SemanticAnalyzer {
                     result = Type.BOOL;
                 }
                 break;
+
             case EQUAL_EQUAL:
             case BANG_EQUAL:
                 if ((left.isNumeric() && right.isNumeric()) || left == right) {
                     result = Type.BOOL;
                 }
                 break;
+
             case AND_AND:
             case OR_OR:
                 if (left == Type.BOOL && right == Type.BOOL) {
                     result = Type.BOOL;
                 }
                 break;
+
             default:
-                error(bin.operator, "Unknown binary operator '" + bin.operator.lexeme + "'.");
+                error(bin.operator, "Unknown binary operator '" + bin.operator.getLexeme() + "'.");
                 return Type.ERROR;
         }
 
         if (result == null) {
-            error(bin.operator, "Operator '" + bin.operator.lexeme + "' cannot be applied to '"
+            error(bin.operator, "Operator '" + bin.operator.getLexeme() + "' cannot be applied to '"
                     + left + "' and '" + right + "'.");
             return Type.ERROR;
         }
         return result;
     }
 
-    // Can we put a 'value' into a 'target'? Only int -> double is allowed.
     private boolean assignable(Type target, Type value) {
         if (target == Type.ERROR || value == Type.ERROR) {
-            return true; // already reported, so don't add another error
+            return true; // already reported, don't add another
         }
         if (target == value) {
             return true;
@@ -264,7 +290,6 @@ public class SemanticAnalyzer {
         return target == Type.DOUBLE && value == Type.INT;
     }
 
-    // If one side is double, the answer is double. Otherwise int.
     private Type widerType(Type a, Type b) {
         if (a == Type.DOUBLE || b == Type.DOUBLE) {
             return Type.DOUBLE;
@@ -272,12 +297,19 @@ public class SemanticAnalyzer {
         return Type.INT;
     }
 
-    // helpers to add a problem to the list
+    // Helpers to add a problem to the list.
     private void error(Token at, String message) {
-        diagnostics.add(new SemanticError(SemanticError.Severity.ERROR, message, at.line, at.column));
+        add(SemanticError.Severity.ERROR, at, message);
     }
 
     private void warning(Token at, String message) {
-        diagnostics.add(new SemanticError(SemanticError.Severity.WARNING, message, at.line, at.column));
+        add(SemanticError.Severity.WARNING, at, message);
+    }
+
+    private void add(SemanticError.Severity severity, Token at, String message) {
+        Token where = (at != null) ? at : lastToken;
+        int line = (where != null) ? where.getLine() : 0;
+        int column = (where != null) ? where.getColumn() : 0;
+        diagnostics.add(new SemanticError(severity, message, line, column));
     }
 }

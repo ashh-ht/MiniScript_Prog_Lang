@@ -1,43 +1,63 @@
 package com.minilang.semantic;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-// Holds all declared variables. 
 public class SymbolTable {
+    private final Deque<Map<String, Symbol>> scopes = new ArrayDeque<>();
+    private final List<Symbol> everDeclared = new ArrayList<>();
 
-    private final Map<String, Symbol> symbols = new LinkedHashMap<>();
+    public SymbolTable() {
+        enterScope();
+    }
 
-    // Returns false if the name is already declared.
+    public void enterScope() {
+        scopes.push(new LinkedHashMap<>());
+    }
+
+    public void exitScope() {
+        if (scopes.size() <= 1) {
+            throw new IllegalStateException("Cannot exit the global scope");
+        }
+        scopes.pop();
+    }
+
     public boolean declare(Symbol symbol) {
-        if (symbols.containsKey(symbol.name)) {
+        Map<String, Symbol> current = scopes.peek();
+        if (current.containsKey(symbol.name)) {
             return false;
         }
-        symbols.put(symbol.name, symbol);
+        current.put(symbol.name, symbol);
+        everDeclared.add(symbol);
         return true;
     }
 
-    // Returns null if the name was never declared.
     public Symbol lookup(String name) {
-        return symbols.get(name);
+        for (Map<String, Symbol> scope : scopes) {
+            Symbol s = scope.get(name);
+            if (s != null) {
+                return s;
+            }
+        }
+        return null;
     }
 
     public Symbol lookupInCurrentScope(String name) {
-        return symbols.get(name);
+        return scopes.peek().get(name);
     }
 
-    // All symbols in the order they were declared.
     public List<Symbol> allSymbols() {
-        return new ArrayList<>(symbols.values());
+        return new ArrayList<>(everDeclared);
     }
 
-    // For printing a table in the report.
     public String dump() {
         StringBuilder sb = new StringBuilder();
         sb.append("NAME\tTYPE\tLINE\tINITIALIZED\n");
-        for (Symbol s : symbols.values()) {
+        for (Symbol s : everDeclared) {
             sb.append(s.name).append("\t")
                     .append(s.type).append("\t")
                     .append(s.line).append("\t")

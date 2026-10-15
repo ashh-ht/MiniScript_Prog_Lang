@@ -1,17 +1,7 @@
-# Maven build output
+bin/
+out/
 target/
-
-# Compiled Java files
 *.class
-
-# IDE and editor files
-.idea/
-*.iml
-.vscode/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
+.classpath
+.project
+.settings/

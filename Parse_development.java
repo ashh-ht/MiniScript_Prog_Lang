@@ -1,4 +1,4 @@
-class Parse_development {
+class Parse_development{
     private final List<Token> tokens;
     private int current = 0;
 

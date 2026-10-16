@@ -1,6 +1,6 @@
 // Notes:
 // - I used M's notes to help determine who the comments came from and the new changed things.
-// 
+
 
 package com.minilang.main;
 
@@ -31,23 +31,23 @@ public class Main {
         try {
             String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
 
-            // M's Note: turn the source code into tokens first.
+            // M's Note: Turn the source code into tokens first.
             List<Token> tokens = new Lexer(source).tokenize();
 
-            // M's Note: display a bullet-point lexical analysis summary.
+            // M's Note: Display a bullet-point lexical analysis summary.
             System.out.println("\n========== LEXER: ANALYSIS REPORT ==========");
             System.out.println("Summary:");
             System.out.println("1.) Total tokens: " + tokens.size());
             System.out.println("2.) Lexical errors: 0");
             System.out.println("3.) Comments: Ignored by the lexer");
 
-            // M's Note: display d tokens produced by the lexer.
+            // M's Note: Display the tokens produced by the lexer.
             System.out.println("\n========== TOKEN DETAILS ==========");
             for (Token token : tokens) {
                 System.out.println("- " + token);
             }
 
-            // M's Note: parse only after the lexer succeeds.
+            // M's Note: Parse only after the lexer succeeds.
             Parser parser = new Parser(tokens);
             List<Stmt> program = parser.parse();
 
@@ -61,25 +61,27 @@ public class Main {
                 return;
             }
 
-            // M's Note: display the AST created by the parser.
+            // M's Note: Display the AST created by the parser.
             System.out.println("\n========== PARSER: ABSTRACT SYNTAX TREE ==========");
             AstPrinter astPrinter = new AstPrinter();
             astPrinter.print(program);
 
-            // M's Note: in here mag check types and variable usage...
+            // M's Note: Check types and variable usage.
             SemanticAnalyzer analyzer = new SemanticAnalyzer();
             analyzer.analyze(program);
 
-            // M's Note: display the semantic analysis report.
+            // M's Note: Display the semantic analysis report.
             System.out.println("\n========== SEMANTIC ANALYSIS ==========");
             System.out.println(analyzer.report());
 
-            if (!analyzer.hasErrors()) {
-                System.out.println("MiniScript type checking completed.");
-            } else {
+            if (analyzer.hasErrors()) {
                 // M's Note: Tell the operating system that semantic analysis failed.
                 System.exit(1);
+                return;
             }
+
+            // M's Note: Display the final message after all analysis stages.
+            System.out.println("\nMiniscript analysis completed.\n");
 
         } catch (Lexer.LexerException e) {
             System.out.println(e.getMessage());

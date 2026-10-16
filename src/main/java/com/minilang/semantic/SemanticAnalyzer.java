@@ -61,18 +61,31 @@ public class SemanticAnalyzer {
         return symbols;
     }
 
-    // Builds a string that Main can print out.
+    // M's Note: Better numbered semantic analysis report.
+
     public String report() {
-        if (diagnostics.isEmpty()) {
-            return "Semantic analysis passed: no errors found.";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (SemanticError d : diagnostics) {
-            sb.append(d).append("\n");
-        }
         int errors = getErrors().size();
         int warnings = diagnostics.size() - errors;
-        sb.append(errors).append(" error(s), ").append(warnings).append(" warning(s).");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Summary:\n");
+        sb.append("1.) Semantic errors: ").append(errors).append("\n");
+        sb.append("2.) Warnings: ").append(warnings).append("\n");
+
+        if (errors == 0) {
+            sb.append("3.) Result: PASSED");
+        } else {
+            sb.append("3.) Result: FAILED");
+        }
+
+        if (!diagnostics.isEmpty()) {
+            sb.append("\n\nDiagnostic Details:\n");
+            for (SemanticError d : diagnostics) {
+                sb.append("- ").append(d).append("\n");
+            }
+            sb.append(errors).append(" error(s), ")
+                    .append(warnings).append(" warning(s).");
+        }
         return sb.toString();
     }
 

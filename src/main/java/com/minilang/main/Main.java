@@ -81,7 +81,7 @@ public class Main {
             }
 
             // M's Note: Display the final message after all analysis stages.
-            System.out.println("\nMiniscript analysis completed.\n");
+            System.out.println("\nMiniScript analysis completed.\n");
 
         } catch (Lexer.LexerException e) {
             System.out.println(e.getMessage());

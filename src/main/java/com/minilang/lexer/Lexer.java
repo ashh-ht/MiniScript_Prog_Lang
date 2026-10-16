@@ -95,9 +95,10 @@ public class Lexer {
     }
 
     // error msg
+    // M's Note: Changed error message for a cleaner look. Para same same sila lexer, parser, and semantic.
     public static class LexerException extends RuntimeException {
         public LexerException(String message, int line, int column) {
-            super("Lexer error at line " + line + ", col " + column + ": " + message);
+            super("[Lexer Error] Line " + line + ", Col " + column + ": " + message);
         }
     }
 
@@ -191,13 +192,15 @@ public class Lexer {
                 if (isDigit(c)) {
                     scanNumber();
                 } else if (isLetter(c)) {
+
+                    // M's Note: Underscores can start identifiers, just like letters.
                     scanIdentifier();
-                } else if (c == '_') {
-                    error("Identifiers cannot start with '_'");
+
                 } else {
                     error("Unexpected character '" + c + "'");
                 }
                 break;
+
         }
 
     }

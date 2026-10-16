@@ -1,3 +1,4 @@
+
 package com.minilang.semantic;
 
 import com.minilang.lexer.Token;
@@ -108,8 +109,14 @@ public class SemanticAnalyzer {
         }
 
         Type initType = null;
+        boolean initializerValid = false;
+
         if (decl.initializer != null) {
             initType = checkExpression(decl.initializer);
+            initializerValid = declared != Type.ERROR
+                    && initType != Type.ERROR
+                    && assignable(declared, initType);
+
             if (!assignable(declared, initType)) {
                 error(decl.name, "Can't assign a " + initType + " to '"
                         + decl.name.getLexeme() + "' (declared as " + declared + ")");
@@ -122,7 +129,7 @@ public class SemanticAnalyzer {
                     + existing.line + ").");
             return;
         }
-        symbols.declare(new Symbol(decl.name.getLexeme(), declared, decl.name.getLine(), decl.initializer != null));
+        symbols.declare(new Symbol(decl.name.getLexeme(), declared, decl.name.getLine(), initializerValid));
     }
 
     private void checkAssign(Assign assign) {
@@ -134,11 +141,19 @@ public class SemanticAnalyzer {
             error(assign.name, "Undeclared variable '" + assign.name.getLexeme() + "'.");
             return;
         }
+
+        boolean validAssignment = target.type != Type.ERROR
+                && valueType != Type.ERROR
+                && assignable(target.type, valueType);
+
         if (!assignable(target.type, valueType)) {
             error(assign.name, "Type error: trying to put a " + valueType + " into "
                     + target.type + " variable '" + target.name + "'");
         }
-        target.initialized = true;
+
+        if (validAssignment) {
+            target.initialized = true;
+        }
     }
 
     private Type checkExpression(Expr expr) {
@@ -186,10 +201,12 @@ public class SemanticAnalyzer {
             error(var.name, "Undeclared variable '" + var.name.getLexeme() + "'.");
             return Type.ERROR;
         }
+
+        // M's Note: Reading a variable doesn't mean it has been initialized.
         if (!s.initialized) {
             warning(var.name, "Variable '" + s.name + "' is used before it is assigned a value.");
-            s.initialized = true;
         }
+
         return s.type;
     }
 

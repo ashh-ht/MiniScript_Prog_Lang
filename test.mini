@@ -1,0 +1,20 @@
+// M: Put tests here.
+
+int count = 10;
+double price = 2.5;
+bool valid = count > price;
+
+
+
+// M: Command to run this test in the VS Code terminal:
+// (Note that you may have to change this if your maven location differs.)
+
+// & "C:\Users\Laptop\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0\bin\mvn.cmd" compile exec:java "-Dexec.mainClass=com.minilang.main.Main" "-Dexec.args=test.mini"
+
+
+
+// M: Check the last command's exit status in PowerShell:
+// (0 means the program ran successfully.)
+// (1 means it reported a failure.)
+
+// $LASTEXITCODE

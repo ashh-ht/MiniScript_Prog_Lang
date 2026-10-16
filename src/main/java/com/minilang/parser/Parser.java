@@ -1,3 +1,4 @@
+
 package com.minilang.parser;
 
 import com.minilang.ast.*;
@@ -11,6 +12,7 @@ import java.util.List;
 public class Parser {
     private final List<Token> tokens;
     private int current = 0;
+    private final List<ParseException> errors = new ArrayList<>();
 
     public Parser(List<Token> tokens) {
         this.tokens = tokens;
@@ -38,10 +40,34 @@ public class Parser {
 
     public List<Stmt> parse() {
         List<Stmt> statements = new ArrayList<>();
+        errors.clear();
+        current = 0;
+
+        // M's Note: Keep going after a syntax error so I can see more than one problem.
         while (!isAtEnd()) {
-            statements.add(statement());
+            int start = current;
+            try {
+                statements.add(statement());
+            } catch (ParseException e) {
+                errors.add(e);
+                synchronize();
+            }
+
+            // M's Note: Make sure a bad token can't leave the parser stuck.
+            if (current == start && !isAtEnd()) {
+                advance();
+            }
         }
         return statements;
+    }
+
+    // M's Note: Main can check these before sending the AST to semantic analysis.
+    public List<ParseException> getErrors() {
+        return new ArrayList<>(errors);
+    }
+
+    public boolean hasErrors() {
+        return !errors.isEmpty();
     }
 
     // Statements looks at the next token and it will decide which kind of statement
@@ -80,7 +106,18 @@ public class Parser {
 
         List<Stmt> statements = new ArrayList<>();
         while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
-            statements.add(statement());
+            int start = current;
+            try {
+                statements.add(statement());
+            } catch (ParseException e) {
+                errors.add(e);
+                synchronize();
+            }
+
+            // M's Note: Keep the block moving even if one statement is malformed.
+            if (current == start && !isAtEnd()) {
+                advance();
+            }
         }
 
         consume(TokenType.RIGHT_BRACE, "Expected '}' to close the block");
@@ -205,9 +242,11 @@ public class Parser {
     }
 
     private Token advance() {
-        if (!isAtEnd())
+        Token token = peek();
+        if (!isAtEnd()) {
             current++;
-        return previous();
+        }
+        return token;
     }
 
     private boolean check(TokenType type) {
@@ -215,8 +254,9 @@ public class Parser {
     }
 
     private boolean checkNext(TokenType type) {
-        if (current + 1 >= tokens.size())
+        if (current + 1 >= tokens.size()) {
             return false;
+        }
         return typeOf(tokens.get(current + 1)) == type;
     }
 
@@ -231,8 +271,9 @@ public class Parser {
     }
 
     private Token consume(TokenType type, String message) {
-        if (check(type))
+        if (check(type)) {
             return advance();
+        }
         throw error(peek(), message);
     }
 
@@ -240,11 +281,35 @@ public class Parser {
         return new ParseException(message, lineOf(token), columnOf(token));
     }
 
+    // M's Note: Skip to a safe point so parsing can continue after an error.
+    private void synchronize() {
+        if (isAtEnd()) {
+            return;
+        }
+
+        advance();
+
+        while (!isAtEnd()) {
+            if (previous().getType() == TokenType.SEMICOLON) {
+                return;
+            }
+
+            if (check(TokenType.INT) || check(TokenType.DOUBLE)
+                    || check(TokenType.STRING) || check(TokenType.BOOL)
+                    || check(TokenType.LEFT_BRACE) || check(TokenType.RIGHT_BRACE)) {
+                return;
+            }
+
+            advance();
+        }
+    }
+
     // Error message as when there is a syntax error or invalid
+    // M's Note: Changed error msg here also. To make them all match.
 
     public static class ParseException extends RuntimeException {
         public ParseException(String message, int line, int column) {
-            super("Parse error at line " + line + ", col " + column + ": " + message);
+            super("[Syntax Error] Line " + line + ", Col " + column + ": " + message);
         }
     }
 
@@ -260,7 +325,15 @@ public class Parser {
                 + "{ x = -x + 1; }\n";
 
         List<Token> tokens = new Lexer(code).tokenize();
-        List<Stmt> program = new Parser(tokens).parse();
+        Parser parser = new Parser(tokens);
+        List<Stmt> program = parser.parse();
+
+        if (parser.hasErrors()) {
+            for (ParseException error : parser.getErrors()) {
+                System.err.println(error.getMessage());
+            }
+            return;
+        }
 
         for (Stmt s : program) {
             System.out.println(s);

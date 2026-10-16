@@ -56,7 +56,7 @@ public class Main {
                 for (Parser.ParseException error : parser.getErrors()) {
                     System.out.println(error.getMessage());
                 }
-                System.out.println("Semantic analysis was skipped.");
+                System.out.println("\nSemantic analysis was skipped.\n");
                 System.exit(1);
                 return;
             }

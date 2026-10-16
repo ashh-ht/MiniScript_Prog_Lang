@@ -95,7 +95,8 @@ public class Lexer {
     }
 
     // error msg
-    // M's Note: Changed error message for a cleaner look. Para same same sila lexer, parser, and semantic.
+    // M's Note: Changed error message for a cleaner look. Para same same sila
+    // lexer, parser, and semantic.
     public static class LexerException extends RuntimeException {
         public LexerException(String message, int line, int column) {
             super("[Lexer Error] Line " + line + ", Col " + column + ": " + message);
@@ -145,9 +146,25 @@ public class Lexer {
             // '/' is either a comment or a division operation
             case '/':
                 if (match('/')) {
-                    // A comment goes until the end of the line. Skip everything.
+                    // Single-line comment
                     while (!isAtEnd() && peek() != '\n') {
                         advance();
+                    }
+                } else if (match('*')) {
+                    // Multi-line comment
+                    while (!isAtEnd()) {
+                        if (peek() == '*' && peekNext() == '/') {
+                            advance();
+                            advance();
+                            break;
+                        }
+                        advance();
+                    }
+
+                    if (isAtEnd() && !(current >= 2
+                            && source.charAt(current - 2) == '*'
+                            && source.charAt(current - 1) == '/')) {
+                        error("Unterminated multi-line comment");
                     }
                 } else {
                     addToken(TokenType.SLASH);

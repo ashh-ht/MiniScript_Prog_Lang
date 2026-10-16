@@ -1,20 +1,47 @@
-// M: Put tests here.
+// (TESTING AREA)
 
-int count = 10;
-double price = 2.5;
-bool valid = count > price;
+// TEST EXAMPLE:
+
+int grade_result = unknown + 5;
 
 
 
+
+
+
+
+
+
+
+// int x = 10;
+// double y = 2.5 * (x + 1);
+// string name = "Cuties";
+// bool ok = x >= 5 && !(y == 3.0) || false;
+// x = -x + 1;
+
+
+// COMMANDS SECTION!!
 // M: Command to run this test in the VS Code terminal:
 // (Note that you may have to change this if your maven location differs.)
-
 // & "C:\Users\Laptop\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0\bin\mvn.cmd" compile exec:java "-Dexec.mainClass=com.minilang.main.Main" "-Dexec.args=test.mini"
-
 
 
 // M: Check the last command's exit status in PowerShell:
 // (0 means the program ran successfully.)
 // (1 means it reported a failure.)
-
 // $LASTEXITCODE
+
+
+
+// EXAMPLES SECTION !!
+
+// (INSTRUCTION REQUIRED CODES)
+// - VARIABLE DECLARATION - 
+// int x = 10;
+// - ARITHEMTIC -
+// int arithmetic_sample = 5 + 10;
+// - CONDITION (BOOL) -
+// int x = 10;
+// bool result = x > 5;
+
+
